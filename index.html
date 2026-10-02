@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Донатный забег</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rubik:wght@400;600&display=swap">
+<style>
+/* Тёмная «студия стримера»: экран игры в центре, красный LIVE как единственный акцент */
+:root {
+  --ink: #111018;
+  --panel: #1c1a26;
+  --line: #2e2b3d;
+  --text: #f1ede4;
+  --muted: #9b96ad;
+  --live: #ff3b4e;
+  --gold: #ffd24a;
+  --pixel: "Press Start 2P", ui-monospace, monospace;
+  --body: "Rubik", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--ink); color: var(--text); font-family: var(--body); }
+body { padding-inline: 16px; padding-block: 20px 28px; }
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { font-family: var(--pixel); font-size: clamp(14px, 2.6vw, 20px); margin: 0; line-height: 1.5; text-wrap: balance; }
+h1 .live { background: var(--live); color: #fff; padding: 4px 7px; margin-right: 10px; font-size: .7em; vertical-align: middle; }
+.best { font-family: var(--pixel); font-size: 10px; color: var(--muted); }
+.best b { color: var(--gold); font-weight: 400; }
+.hud { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; font-family: var(--pixel); font-size: clamp(8px, 1.5vw, 11px); background: var(--panel); border: 2px solid var(--line); padding: 10px 12px; font-variant-numeric: tabular-nums; }
+.hud div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hud span { color: var(--muted); font-size: .8em; letter-spacing: .05em; }
+.hud b { font-weight: 400; white-space: nowrap; }
+.stage { position: relative; width: 100%; aspect-ratio: 320 / 224; max-width: 100%; border: 2px solid var(--line); background: #79c7ff; }
+canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; background: rgba(17, 16, 24, .72); padding: 16px; }
+.overlay h2 { font-family: var(--pixel); font-size: clamp(14px, 3.4vw, 26px); margin: 0; line-height: 1.4; text-wrap: balance; }
+.overlay p { margin: 0; max-width: 46ch; color: var(--text); line-height: 1.5; font-size: clamp(12px, 1.8vw, 15px); }
+.overlay .big { font-family: var(--pixel); color: var(--gold); font-size: clamp(12px, 2.6vw, 18px); }
+.btn { font-family: var(--pixel); font-size: 12px; background: var(--live); color: #fff; border: 0; padding: 12px 18px; cursor: pointer; box-shadow: 0 4px 0 #a01826; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a01826; }
+.btn:focus-visible, .pad button:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.alert { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); background: var(--panel); border: 2px solid var(--gold); padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; text-align: center; font-size: clamp(10px, 1.6vw, 13px); line-height: 1.35; box-shadow: 0 4px 0 rgba(0,0,0,.35); animation: drop .35s ease-out; pointer-events: none; }
+.alert .who { font-family: var(--pixel); font-size: clamp(7px, 1.2vw, 10px); color: var(--gold); }
+.alert .msg { color: var(--text); }
+@keyframes drop { from { transform: translate(-50%, -24px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .alert { animation: none; } }
+.help { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13px; }
+kbd { font-family: var(--pixel); font-size: 9px; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-bottom-width: 3px; padding: 3px 6px; }
+body { touch-action: manipulation; }
+.pad { display: none; justify-content: space-between; align-items: center; gap: 12px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+.pad .grp { display: flex; align-items: center; gap: 12px; }
+.dpad { display: flex; width: 168px; height: 78px; background: var(--panel); border: 2px solid var(--line); touch-action: none; }
+.dpad .arrow { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--text); }
+.dpad .arrow.l { border-right: 2px solid var(--line); }
+.dpad .arrow.on { background: var(--line); color: var(--gold); }
+.pad button { font-family: var(--pixel); font-size: 11px; color: var(--text); background: var(--panel); border: 2px solid var(--line); touch-action: none; }
+.pad .run { width: 66px; height: 52px; }
+.pad .run[aria-pressed="true"] { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.pad .jump { width: 88px; height: 88px; border-radius: 50%; background: var(--live); border-color: var(--live); color: #fff; box-shadow: 0 4px 0 #a01826; }
+.pad .jump.on { transform: translateY(3px); box-shadow: 0 1px 0 #a01826; }
+canvas { touch-action: none; }
+.touch .pad { display: flex; }
+.touch .help { display: none; }
+/* телефон боком: игра на всю высоту, кнопки поверх по бокам */
+@media (orientation: landscape) and (max-height: 520px) {
+  body { padding-block: 6px; }
+  .wrap { max-width: none; gap: 6px; }
+  header, .help { display: none; }
+  .hud { padding: 4px 10px; gap: 4px; font-size: 8px; }
+  .hud div { flex-direction: row; gap: 6px; align-items: baseline; }
+  .stage { height: calc(100vh - 52px); height: calc(100dvh - 52px); width: auto; margin-inline: auto; }
+  .touch .pad { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); pointer-events: none; align-items: flex-end; }
+  .touch .pad > * { pointer-events: auto; }
+  .touch .pad .grp { flex-direction: column-reverse; align-items: flex-end; }
+  .dpad { opacity: .75; width: 150px; height: 72px; }
+  .pad .run, .pad .jump { opacity: .85; }
+}
+@media (max-width: 520px) { .hud { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="live">LIVE</span>Донатный забег</h1>
+    <div class="best">Рекорд: <b id="best">0</b> ₽</div>
+  </header>
+
+  <div class="hud" aria-live="off">
+    <div><span>ДОНАТЫ</span><b id="hScore">0 ₽</b></div>
+    <div><span>ПАЧКИ</span><b id="hCoins">×0</b></div>
+    <div><span>УРОВЕНЬ</span><b id="hLvl">1-1</b></div>
+    <div><span>ЭФИР</span><b id="hTime">300</b></div>
+    <div><span>ЖИЗНИ</span><b id="hLives">♥×3</b></div>
+  </div>
+
+  <div class="stage">
+    <canvas id="c" width="320" height="224" aria-label="Игровое поле"></canvas>
+    <div class="alert" id="alert" hidden><span class="who" id="alWho"></span><span class="msg" id="alMsg"></span></div>
+    <div class="overlay" id="ov">
+      <h2 id="ovTitle">Донатный забег</h2>
+      <p id="ovText">Собирай пачки денег, бей донат-блоки, прыгай на мусоров и добеги до студии, пока не кончился эфир.</p>
+      <div class="big" id="ovBig" hidden></div>
+      <button class="btn" id="ovBtn" type="button">Начать стрим</button>
+    </div>
+  </div>
+
+  <div class="pad" id="pad">
+    <div class="dpad" id="dpad" role="group" aria-label="Влево и вправо"><span class="arrow l">◀</span><span class="arrow r">▶</span></div>
+    <div class="grp">
+      <button type="button" class="run" id="runBtn" aria-pressed="false">БЕГ</button>
+      <button type="button" class="jump" id="jumpBtn">ПРЫГ</button>
+    </div>
+  </div>
+
+  <div class="help">
+    <span><kbd>←</kbd> <kbd>→</kbd> идти</span>
+    <span><kbd>Пробел</kbd> или <kbd>↑</kbd> прыжок (держи, чтобы выше)</span>
+    <span><kbd>Shift</kbd> бег</span>
+    <span><kbd>P</kbd> пауза</span>
+    <span><kbd>M</kbd> звук</span>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const T = 16, ROWS = 14, W = 320, H = 224;
+let LW = 212, lvl = 0, banner = 0;
+const cv = document.getElementById("c");
+const ctx = cv.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+const SOLID = new Set(["G", "D", "B", "?", "P", "U", "X", "[", "]", "{", "}"]);
+const PIX = '"Press Start 2P", monospace';
+
+let map, enemies, items, pops, parts, texts, bumps, platforms, player, camX;
+let alertCd = 600, alertTimer = 0, halfwayAlert = false;
+let score = 0, coins = 0, lives = 3, time = 300, timeTick = 0, frame = 0;
+let state = "title", checkpoint = false, flagX = 198, flagY = 2 * T + 4, timer = 0;
+let best = 0;
+try { best = +localStorage.getItem("donat-run-best") || 0; } catch (e) {}
+
+// ---------- уровни ----------
+const LEVELS = [
+  {
+    id: "1-1", name: "Город", w: 212, flag: 198, check: 100,
+    theme: { kind: "day", gTop: "#58c43a", gTopDk: "#3f9a2a", gBody: "#b8693a", gSpeck: "#94522c" },
+    build({ ground, row, pipe, stair, fly, plat, foe }) {
+      ground(0, 64); ground(74, 86); ground(90, 152); ground(155, 167); ground(177, 211);
+      row(10, 9, "ooo");
+      row(16, 8, "?");
+      row(20, 8, "BPB?B"); row(22, 4, "?");
+      pipe(28, 2); pipe(38, 3); pipe(46, 4); pipe(57, 4);
+      foe(22); foe(40); foe(51); foe(53);
+      row(68, 7, "ooooo");
+      plat(65, 10, 3, "x", 6, 0.6);
+      fly(60, 6); fly(96, 6); fly(118, 5); fly(146, 6); fly(186, 4);
+      row(77, 8, "B?B"); row(80, 4, "BBBBBBBB"); foe(81, 3); foe(84, 3);
+      row(87, 9, "ooo");
+      row(91, 4, "BBB?"); row(94, 8, "?");
+      foe(97); foe(99);
+      row(100, 8, "BB"); row(102, 9, "ooo");
+      row(106, 8, "?"); row(109, 8, "?"); row(109, 4, "P"); row(112, 8, "?");
+      foe(110); foe(113);
+      row(118, 8, "B"); row(121, 4, "BBB");
+      foe(125); foe(127); foe(130); foe(132);
+      row(128, 4, "B??B"); row(129, 8, "BB");
+      for (let i = 0; i < 4; i++) stair(134 + i, i + 1);
+      for (let i = 0; i < 4; i++) stair(140 + i, 4 - i);
+      row(144, 9, "ooo");
+      for (let i = 0; i < 4; i++) stair(148 + i, i + 1);
+      stair(152, 4); row(153, 6, "oo");
+      for (let i = 0; i < 4; i++) stair(155 + i, 4 - i);
+      pipe(163, 2); row(159, 8, "B?B"); foe(161); foe(166);
+      plat(168, 7, 3, "y", 4, 0.5);
+      plat(172, 10, 3, "y", -4, 0.5); row(169, 5, "ooo"); row(173, 5, "ooo");
+      pipe(179, 2);
+      for (let i = 0; i < 8; i++) stair(181 + i, i + 1);
+      stair(189, 8);
+    },
+  },
+  {
+    id: "1-2", name: "Ночной город", w: 218, flag: 206, check: 95,
+    theme: { kind: "night", gTop: "#5a5670", gTopDk: "#ffd24a", gBody: "#2b2838", gSpeck: "#3a3550" },
+    build({ ground, row, pipe, stair, fly, plat, foe }) {
+      ground(0, 30); ground(38, 60); ground(66, 90); ground(95, 130); ground(140, 170); ground(176, 217);
+      row(8, 8, "?B?"); row(14, 9, "ooo");
+      row(18, 8, "BPB"); row(19, 4, "?"); foe(20); foe(26);
+      plat(31, 10, 2, "x", 4, 0.7); row(32, 7, "oooo"); fly(28, 6);
+      pipe(44, 3); foe(48); foe(50);
+      row(52, 8, "B?B?B"); row(53, 4, "BBB"); foe(54, 3); fly(58, 5);
+      plat(61, 9, 3, "y", -4, 0.6); row(62, 4, "ooo");
+      foe(72); foe(74); pipe(76, 2); foe(80); pipe(84, 4); foe(88);
+      fly(70, 6); fly(86, 4);
+      row(91, 7, "oooo");
+      row(98, 8, "BB?BB?BB"); row(100, 4, "P"); fly(100, 3);
+      foe(102); foe(104); foe(110); foe(114); foe(118); foe(122);
+      fly(112, 6);
+      for (let i = 0; i < 4; i++) stair(126 + i, i + 1);
+      stair(130, 4);
+      plat(131, 9, 3, "x", 3, 0.7); plat(136, 7, 2, "y", 3, 0.5); row(132, 5, "ooooooo");
+      for (let i = 0; i < 4; i++) stair(140 + i, 4 - i);
+      row(148, 8, "?B?B?"); foe(150); foe(152); foe(156); fly(150, 5);
+      pipe(160, 3); foe(165); foe(167); fly(165, 6);
+      plat(171, 10, 2, "y", -4, 0.6); row(172, 5, "ooo");
+      foe(180); foe(183); row(181, 8, "B?B");
+      for (let i = 0; i < 8; i++) stair(186 + i, i + 1);
+      stair(194, 8);
+    },
+  },
+  {
+    id: "1-3", name: "Казино", w: 200, flag: 186, check: 93,
+    theme: { kind: "casino", gTop: "#c8323c", gTopDk: "#ffcf3f", gBody: "#3a1a14", gSpeck: "#2a120e" },
+    build({ ground, row, pipe, stair, fly, plat, foe, set }) {
+      ground(0, 24); ground(34, 50); ground(59, 80); ground(93, 130); ground(141, 199);
+      row(10, 8, "???"); row(16, 9, "ooo");
+      plat(25, 9, 3, "x", 5, 0.8); row(26, 6, "oooooo");
+      row(38, 8, "?P?"); foe(42); foe(46); fly(40, 5);
+      plat(51, 10, 2, "y", -5, 0.6); plat(55, 6, 2, "y", 4, 0.6); row(52, 3, "oooooo");
+      pipe(62, 3); foe(66); foe(68); pipe(70, 4); foe(75); fly(64, 4); row(76, 8, "B?B");
+      set(83, 10, "X"); set(84, 10, "X"); set(87, 8, "X"); set(88, 8, "X"); row(83, 7, "oo"); row(87, 5, "oo");
+      row(96, 8, "BBBB"); row(100, 4, "B?B?B"); foe(97); foe(99); foe(101); foe(103);
+      row(106, 8, "?"); row(108, 8, "P"); fly(110, 6); fly(118, 5);
+      foe(112); foe(114); foe(116); foe(120); pipe(124, 3); foe(127);
+      plat(131, 10, 3, "x", 3, 0.9); plat(137, 8, 3, "y", -3, 0.7); row(132, 6, "oooooooo");
+      row(146, 8, "?B?B?"); foe(145); foe(147); foe(150); foe(152); fly(148, 5); fly(158, 4);
+      for (let i = 0; i < 8; i++) stair(160 + i, i + 1);
+      stair(168, 8);
+    },
+  },
+];
+
+function buildLevel() {
+  const L = LEVELS[lvl];
+  LW = L.w; flagX = L.flag;
+  map = Array.from({ length: ROWS }, () => new Array(LW).fill("."));
+  enemies = []; items = []; pops = []; parts = []; texts = []; bumps = new Map(); platforms = [];
+  const set = (x, y, c) => { if (x >= 0 && x < LW && y >= 0 && y < ROWS) map[y][x] = c; };
+  const ground = (a, b) => { for (let x = a; x <= b; x++) { set(x, 12, "G"); set(x, 13, "D"); } };
+  const row = (x, y, s) => [...s].forEach((c, i) => { if (c !== " ") set(x + i, y, c); });
+  const pipe = (x, h) => { for (let i = 0; i < h; i++) { const top = i === h - 1; set(x, 11 - i, top ? "[" : "{"); set(x + 1, 11 - i, top ? "]" : "}"); } };
+  const stair = (x, h) => { for (let i = 0; i < h; i++) set(x, 11 - i, "X"); };
+  const fly = (x, y) => enemies.push({ fly: true, x: x * T, y: y * T, y0: y * T, w: 14, h: 12, vx: 0, vy: 0, dir: -1, active: false, dead: null, t: x * 7 });
+  const plat = (x, y, w, axis, range, speed) => platforms.push({ x: x * T, y: y * T, w: w * T, h: 6, axis, a: axis === "x" ? x * T : y * T, b: (axis === "x" ? x : y) * T + range * T, dir: 1, speed, dx: 0, dy: 0 });
+  const foe = (x, y = 11) => enemies.push({ x: x * T + 1, y: (y + 1) * T - 26, w: 14, h: 26, vx: 0, vy: 0, dir: -1, active: false, dead: null, t: 0 });
+  L.build({ set, ground, row, pipe, stair, fly, plat, foe });
+  set(flagX, 11, "X");
+  flagY = 2 * T + 4;
+}
+
+function makePlayer(x) {
+  return { x, y: 12 * T - 28, w: 14, h: 28, vx: 0, vy: 0, onGround: true, big: false, face: 1, inv: 0, coyote: 0, combo: 0, anim: 0, hidden: false };
+}
+
+function resetRun(full) {
+  if (full) { score = 0; coins = 0; lives = 3; checkpoint = false; halfwayAlert = false; }
+  alertCd = 420; alertTimer = 0; alertEl.hidden = true;
+  buildLevel();
+  const sx = checkpoint ? LEVELS[lvl].check * T : 3 * T;
+  banner = 150;
+  player = makePlayer(sx);
+  camX = Math.max(0, sx - 96);
+  time = 300; timeTick = 0; timer = 0;
+  state = "play";
+  hud();
+}
+
+// ---------- физика ----------
+function solidAt(tx, ty) {
+  if (tx < 0 || tx >= LW) return true;
+  if (ty < 0 || ty >= ROWS) return false;
+  return SOLID.has(map[ty][tx]);
+}
+
+function moveEntity(e, onHead) {
+  e.hitWall = false;
+  e.x += e.vx;
+  let y0 = Math.floor(e.y / T), y1 = Math.floor((e.y + e.h - 0.01) / T);
+  if (e.vx > 0) {
+    const tx = Math.floor((e.x + e.w - 0.01) / T);
+    for (let ty = y0; ty <= y1; ty++) if (solidAt(tx, ty)) { e.x = tx * T - e.w; e.vx = 0; e.hitWall = true; break; }
+  } else if (e.vx < 0) {
+    const tx = Math.floor(e.x / T);
+    for (let ty = y0; ty <= y1; ty++) if (solidAt(tx, ty)) { e.x = (tx + 1) * T; e.vx = 0; e.hitWall = true; break; }
+  }
+  e.y += e.vy;
+  e.onGround = false;
+  const x0 = Math.floor(e.x / T), x1 = Math.floor((e.x + e.w - 0.01) / T);
+  if (e.vy > 0) {
+    const ty = Math.floor((e.y + e.h - 0.01) / T);
+    for (let tx = x0; tx <= x1; tx++) if (solidAt(tx, ty)) { e.y = ty * T - e.h; e.vy = 0; e.onGround = true; break; }
+  } else if (e.vy < 0) {
+    const ty = Math.floor(e.y / T);
+    const hits = [];
+    for (let tx = x0; tx <= x1; tx++) if (ty >= 0 && solidAt(tx, ty)) hits.push(tx);
+    if (hits.length) {
+      e.y = (ty + 1) * T; e.vy = 0;
+      if (onHead) {
+        const cx = e.x + e.w / 2;
+        hits.sort((a, b) => Math.abs(a * T + 8 - cx) - Math.abs(b * T + 8 - cx));
+        onHead(hits[0], ty);
+      }
+    }
+  }
+}
+
+const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+function addText(x, y, s) { texts.push({ x, y, s, t: 0 }); }
+function addScore(n, x, y) { score += n; if (x !== undefined) addText(x, y, "+" + n); }
+
+function getCoin(x, y) {
+  coins++; addScore(200);
+  if (coins >= 50) { coins -= 50; lives++; addText(x, y - 10, "+1 ЖИЗНЬ"); sfx.up(); } else sfx.coin();
+}
+
+function hitBlock(tx, ty) {
+  const c = map[ty][tx];
+  if (c === "?") {
+    map[ty][tx] = "U"; bumps.set(tx + "," + ty, 0);
+    pops.push({ x: tx * T + 3, y: ty * T - 10, vy: -4, t: 0 });
+    getCoin(tx * T, ty * T);
+  } else if (c === "P") {
+    map[ty][tx] = "U"; bumps.set(tx + "," + ty, 0);
+    items.push({ x: tx * T + 3, y: ty * T, w: 10, h: 14, vx: 0, vy: 0, rise: 16, dir: 1 });
+    sfx.sprout();
+  } else if (c === "B") {
+    if (player.big) {
+      map[ty][tx] = ".";
+      for (let i = 0; i < 4; i++) parts.push({ x: tx * T + 4 + (i % 2) * 8, y: ty * T + 4 + (i > 1 ? 8 : 0), vx: (i % 2 ? 1.2 : -1.2), vy: i > 1 ? -2.5 : -4.5 });
+      addScore(50); sfx.brk();
+    } else { bumps.set(tx + "," + ty, 0); sfx.bump(); }
+  } else sfx.bump();
+  // мусор, стоящий на блоке, улетает
+  for (const e of enemies) {
+    if (!e.dead && e.x + e.w > tx * T && e.x < tx * T + T && Math.abs(e.y + e.h - ty * T) < 4) killFlip(e);
+  }
+}
+
+function killFlip(e) { e.dead = "flip"; e.vy = -3.5; e.t = 0; addScore(100, e.x, e.y); sfx.stomp(); }
+
+function hurt() {
+  if (player.inv > 0 || state !== "play") return;
+  if (player.big) {
+    player.big = false; player.inv = 120; sfx.shrink();
+  } else die();
+}
+
+function die() {
+  state = "dying"; timer = 0; player.vx = 0;
+  player.vy = player.y > H ? 0 : -5.5;
+  sfx.die();
+}
+
+// ---------- ввод ----------
+const keys = { left: false, right: false, jump: false, run: false };
+let jumpBuf = 0;
+const KEYMAP = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "jump", KeyW: "jump", Space: "jump", KeyZ: "jump", ShiftLeft: "run", ShiftRight: "run", KeyX: "run" };
+function press(k, on) {
+  if (k === "jump" && on && !keys.jump) jumpBuf = 8;
+  keys[k] = on;
+}
+addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("button") && (e.code === "Space" || e.code === "Enter")) {
+    if (state === "play") e.preventDefault(); else return;
+  }
+  ensureAudio();
+  if (KEYMAP[e.code]) { e.preventDefault(); press(KEYMAP[e.code], true); }
+  if (e.code === "Enter" && state !== "play" && state !== "dying" && state !== "flag" && state !== "walk" && state !== "tally") ovBtn.click();
+  if ((e.code === "KeyP" || e.code === "Escape") && (state === "play" || state === "pause")) togglePause();
+  if (e.code === "KeyM") muted = !muted;
+});
+addEventListener("keyup", e => { if (KEYMAP[e.code]) press(KEYMAP[e.code], false); });
+addEventListener("blur", () => { for (const k in keys) keys[k] = false; if (state === "play") togglePause(); });
+
+// ---------- сенсорное управление ----------
+const isTouch = matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+if (isTouch) document.documentElement.classList.add("touch");
+let runOn = false;
+const pad = document.getElementById("pad");
+pad.addEventListener("contextmenu", e => e.preventDefault());
+
+// крестовина: одна зона, палец можно вести влево-вправо не отрывая
+const dpad = document.getElementById("dpad"), arrL = dpad.querySelector(".l"), arrR = dpad.querySelector(".r");
+const dPtr = new Map();
+function dpadSync() {
+  let l = false, rr = false;
+  for (const fx of dPtr.values()) { if (fx < 0.5) l = true; else rr = true; }
+  keys.left = l; keys.right = rr;
+  arrL.classList.toggle("on", l); arrR.classList.toggle("on", rr);
+}
+function dpadPos(e) { const b = dpad.getBoundingClientRect(); return (e.clientX - b.left) / b.width; }
+dpad.addEventListener("pointerdown", e => { e.preventDefault(); ensureAudio(); dpad.setPointerCapture?.(e.pointerId); dPtr.set(e.pointerId, dpadPos(e)); dpadSync(); });
+dpad.addEventListener("pointermove", e => { if (dPtr.has(e.pointerId)) { dPtr.set(e.pointerId, dpadPos(e)); dpadSync(); } });
+const dpadUp = e => { dPtr.delete(e.pointerId); dpadSync(); };
+dpad.addEventListener("pointerup", dpadUp);
+dpad.addEventListener("pointercancel", dpadUp);
+
+// прыжок: кнопка, а ещё тап по самому экрану игры
+function holdButton(el, onDown, onUp) {
+  const ids = new Set();
+  el.addEventListener("pointerdown", e => { e.preventDefault(); ensureAudio(); ids.add(e.pointerId); el.setPointerCapture?.(e.pointerId); onDown(); });
+  const up = e => { if (ids.delete(e.pointerId) && !ids.size) onUp(); };
+  el.addEventListener("pointerup", up);
+  el.addEventListener("pointercancel", up);
+}
+const jumpBtn = document.getElementById("jumpBtn");
+holdButton(jumpBtn, () => { jumpBtn.classList.add("on"); press("jump", true); }, () => { jumpBtn.classList.remove("on"); press("jump", false); });
+holdButton(cv, () => { if (state === "play") press("jump", true); }, () => press("jump", false));
+
+// бег: включается и выключается тапом
+const runBtn = document.getElementById("runBtn");
+runBtn.addEventListener("pointerdown", e => { e.preventDefault(); ensureAudio(); runOn = !runOn; runBtn.setAttribute("aria-pressed", runOn); });
+
+// ---------- звук ----------
+let actx = null, muted = false;
+function ensureAudio() {
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+}
+function tone(f, d, type = "square", vol = 0.05, slide = 0, delay = 0) {
+  if (!actx || muted) return;
+  const t = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + 0.02);
+}
+const seq = (notes, step, type, vol) => notes.forEach((f, i) => tone(f, step * 1.4, type, vol, 0, i * step));
+const sfx = {
+  jump: () => tone(300, 0.18, "square", 0.04, 700),
+  coin: () => { tone(988, 0.07); tone(1319, 0.22, "square", 0.05, 0, 0.07); },
+  stomp: () => tone(220, 0.12, "square", 0.06, 70),
+  bump: () => tone(110, 0.08, "triangle", 0.12),
+  brk: () => tone(160, 0.15, "sawtooth", 0.05, 50),
+  sprout: () => seq([392, 523, 659], 0.06, "triangle", 0.08),
+  power: () => seq([523, 659, 784, 1047, 1319], 0.06, "square", 0.04),
+  shrink: () => seq([784, 523, 392, 262], 0.06, "square", 0.04),
+  up: () => seq([659, 784, 1319, 1047, 1175, 1568], 0.07, "square", 0.04),
+  die: () => seq([494, 466, 440, 392, 330, 262], 0.12, "square", 0.05),
+  alert: () => seq([784, 988, 1175, 1568], 0.08, "triangle", 0.07),
+  win: () => seq([523, 659, 784, 1047, 784, 1047, 1319], 0.11, "square", 0.05),
+};
+
+// ---------- обновление ----------
+function step() {
+  frame++;
+  if (state === "play") updatePlay();
+  else if (state === "dying") updateDying();
+  else if (state === "flag" || state === "walk" || state === "tally") updateFinish();
+  if (alertTimer > 0 && --alertTimer === 0) alertEl.hidden = true;
+  for (const [k, v] of bumps) { if (v >= 10) bumps.delete(k); else bumps.set(k, v + 1); }
+  for (const p of pops) { p.y += p.vy; p.vy += 0.3; p.t++; }
+  pops = pops.filter(p => { if (p.t === 26) addText(p.x, p.y, "+200"); return p.t < 26; });
+  for (const p of parts) {
+    p.t = (p.t || 0) + 1;
+    if (p.bill) { p.vx *= 0.97; p.vy = Math.min(p.vy + 0.12, 0.9); p.x += p.vx + Math.sin(p.t / 6) * 0.4; p.y += p.vy; }
+    else { p.x += p.vx; p.y += p.vy; p.vy += 0.3; }
+  }
+  parts = parts.filter(p => p.y < H + 20 && !(p.bill && p.t > 70));
+  for (const t of texts) { t.t++; t.y -= 0.6; }
+  texts = texts.filter(t => t.t < 50);
+}
+
+function updatePlatforms() {
+  for (const pl of platforms) {
+    const ox = pl.x, oy = pl.y, lo = Math.min(pl.a, pl.b), hi = Math.max(pl.a, pl.b);
+    if (pl.axis === "x") { pl.x += pl.dir * pl.speed; if (pl.x < lo || pl.x > hi) { pl.dir *= -1; pl.x = Math.min(hi, Math.max(lo, pl.x)); } }
+    else { pl.y += pl.dir * pl.speed * (pl.b < pl.a ? -1 : 1); if (pl.y < lo || pl.y > hi) { pl.dir *= -1; pl.y = Math.min(hi, Math.max(lo, pl.y)); } }
+    pl.dx = pl.x - ox; pl.dy = pl.y - oy;
+    if (player.onPlat === pl) { player.x += pl.dx; player.y += pl.dy; }
+  }
+}
+
+function landOnPlatforms(p) {
+  p.onPlat = null;
+  if (p.vy < 0) return;
+  for (const pl of platforms) {
+    if (p.x + p.w <= pl.x || p.x >= pl.x + pl.w) continue;
+    const bottom = p.y + p.h;
+    if (bottom >= pl.y && bottom - p.vy - Math.max(0, pl.dy) <= pl.y + 2) {
+      p.y = pl.y - p.h; p.vy = 0; p.onGround = true; p.onPlat = pl; return;
+    }
+  }
+}
+
+// ---------- донаты ----------
+const DONORS = ["Kot_Bayun", "Doner_777", "ZloyChat", "Babka_Zina", "Лудик_01", "Moder_Vasya", "Sanya_Krutoi", "TikToker_Pro", "Хейтер_228", "Mamkin_Investor"];
+const DONO_MSGS = ["прыгай выше!", "лысина блестит", "ирокез на месте?", "скинь пачку, брат", "мусора не пройдут", "а Марио так умеет?", "это мой любимый стрим", "рейд из соседнего стрима!", "ещё одну пачку возьми", "куртка огонь"];
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const alertEl = document.getElementById("alert"), alWho = document.getElementById("alWho"), alMsg = document.getElementById("alMsg");
+function donate(msg) {
+  const sum = pick([100, 200, 228, 300, 500, 777, 1000]);
+  score += sum; hud();
+  alWho.textContent = pick(DONORS) + " задонатил " + fmt(sum) + " ₽";
+  alMsg.textContent = msg || pick(DONO_MSGS);
+  alertEl.hidden = true; void alertEl.offsetWidth; alertEl.hidden = false;
+  alertTimer = 210;
+  sfx.alert();
+}
+
+function updatePlay() {
+  const p = player;
+  updatePlatforms();
+  if (--alertCd <= 0) { alertCd = 700 + Math.random() * 700; donate(); }
+  // таймер эфира
+  if (++timeTick >= 24) { timeTick = 0; time--; hud(); if (time <= 0) { die(); return; } }
+  const run = keys.run || runOn;
+  const max = run ? 2.6 : 1.6;
+  const acc = p.onGround ? (run ? 0.16 : 0.12) : 0.09;
+  if (keys.left && !keys.right) { p.vx -= acc; p.face = -1; }
+  else if (keys.right && !keys.left) { p.vx += acc; p.face = 1; }
+  else if (p.onGround) { p.vx *= 0.82; if (Math.abs(p.vx) < 0.05) p.vx = 0; }
+  if (Math.abs(p.vx) > max) p.vx = Math.sign(p.vx) * Math.max(max, Math.abs(p.vx) * 0.96);
+
+  p.coyote = p.onGround ? 6 : p.coyote - 1;
+  if (jumpBuf > 0 && p.coyote > 0) {
+    p.vy = -(5.0 + Math.abs(p.vx) * 0.35); p.coyote = 0; jumpBuf = 0; sfx.jump();
+    // разбрасывает купюры в прыжке
+    for (let i = 0; i < 3; i++) parts.push({ bill: true, x: p.x + p.w / 2 + p.face * 6, y: p.y + 2, vx: p.face * (0.4 + Math.random() * 1.2) - p.vx * 0.3, vy: -2 - Math.random() * 1.5, t: 0 });
+  }
+  if (jumpBuf > 0) jumpBuf--;
+  p.vy = Math.min(p.vy + (keys.jump && p.vy < 0 ? 0.17 : 0.4), 6.5);
+  moveEntity(p, hitBlock);
+  landOnPlatforms(p);
+  if (p.onGround) p.combo = 0;
+  if (p.x < camX) { p.x = camX; if (p.vx < 0) p.vx = 0; }
+  if (p.inv > 0) p.inv--;
+  p.anim += Math.abs(p.vx);
+
+  // пачки денег в воздухе
+  const x0 = Math.floor(p.x / T), x1 = Math.floor((p.x + p.w - 0.01) / T);
+  const y0 = Math.max(0, Math.floor(p.y / T)), y1 = Math.min(ROWS - 1, Math.floor((p.y + p.h - 0.01) / T));
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    if (map[ty] && map[ty][tx] === "o") { map[ty][tx] = "."; getCoin(tx * T, ty * T); }
+  }
+
+  if (p.x > LEVELS[lvl].check * T) { checkpoint = true; if (!halfwayAlert) { halfwayAlert = true; donate("полпути позади, держись!"); } }
+  if (p.y > H + 16) { die(); return; }
+
+  // камера
+  camX = Math.min(Math.max(camX, p.x - W * 0.42), LW * T - W);
+
+  updateItems();
+  updateEnemies();
+
+  // флаг
+  if (p.x + p.w >= flagX * T + 6) {
+    state = "flag"; timer = 0;
+    p.x = flagX * T + 7 - p.w; p.vx = 0; p.vy = 0; p.face = 1;
+    const h = p.y;
+    const bonus = h < 4 * T ? 5000 : h < 6 * T ? 2000 : h < 8 * T ? 800 : h < 10 * T ? 400 : 100;
+    addScore(bonus, p.x + 14, p.y);
+    sfx.win();
+  }
+}
+
+function updateItems() {
+  for (const it of items) {
+    if (it.rise > 0) { it.y -= 1; it.rise--; continue; }
+    it.vx = it.dir * 1;
+    it.vy = Math.min(it.vy + 0.4, 6);
+    moveEntity(it);
+    if (it.hitWall) it.dir *= -1;
+    if (overlap(it, player)) {
+      it.gone = true;
+      addScore(1000, it.x, it.y);
+      player.big = true;
+      donate("энергос зашёл");
+      sfx.power();
+    }
+    if (it.y > H + 20) it.gone = true;
+  }
+  items = items.filter(i => !i.gone);
+}
+
+function updateEnemies() {
+  const p = player;
+  for (const e of enemies) {
+    if (!e.active) { if (e.x < camX + W + 24) e.active = true; else continue; }
+    if (e.dead === "flat" && e.fly) { e.dead = "flip"; e.vy = 0; }
+    if (e.dead === "flat") { if (++e.t > 30) e.gone = true; continue; }
+    if (e.dead === "flip") { e.vy += 0.3; e.y += e.vy; if (e.y > H + 20) e.gone = true; continue; }
+    if (e.fly) {
+      e.t++; e.x += e.dir * 0.55; e.y = e.y0 + Math.sin(e.t / 22) * 18;
+    } else {
+      e.vx = e.dir * 0.5;
+      e.vy = Math.min(e.vy + 0.4, 6);
+      moveEntity(e);
+      if (e.hitWall) e.dir *= -1;
+    }
+    if (e.y > H + 20) { e.gone = true; continue; }
+    if (e.x + e.w < camX - 64) { e.gone = true; continue; }
+    if (overlap(e, p)) {
+      if (p.vy > 0 && p.y + p.h - e.y < 10) {
+        e.dead = "flat"; e.t = 0;
+        p.vy = keys.jump ? -6 : -3.8;
+        const pts = [100, 200, 400, 800, 1000, 2000][Math.min(p.combo, 5)];
+        p.combo++;
+        if (p.combo === 3) donate("КОМБО! чат в шоке");
+        addScore(pts, e.x, e.y);
+        sfx.stomp();
+      } else hurt();
+    }
+  }
+  // мусора разворачиваются, столкнувшись друг с другом
+  const live = enemies.filter(e => e.active && !e.dead && !e.fly);
+  for (let i = 0; i < live.length; i++) for (let j = i + 1; j < live.length; j++) {
+    const a = live[i], b = live[j];
+    if (overlap(a, b)) {
+      if (a.x < b.x) { a.dir = -1; b.dir = 1; } else { a.dir = 1; b.dir = -1; }
+    }
+  }
+  enemies = enemies.filter(e => !e.gone);
+}
+
+function updateDying() {
+  const p = player;
+  timer++;
+  if (timer > 30) { p.vy += 0.3; p.y += p.vy; }
+  if (timer > 160) {
+    lives--;
+    if (lives <= 0) { state = "over"; saveBest(); showOverlay("over"); }
+    else resetRun(false);
+    hud();
+  }
+}
+
+function updateFinish() {
+  const p = player;
+  timer++;
+  if (state === "flag") {
+    if (p.y + p.h < 11 * T) p.y = Math.min(p.y + 2, 11 * T - p.h);
+    if (flagY < 10 * T) flagY += 2;
+    if (p.y + p.h >= 11 * T && flagY >= 10 * T) { state = "walk"; p.x += 10; }
+  } else if (state === "walk") {
+    p.vx = 1.2; p.vy = Math.min(p.vy + 0.4, 6);
+    moveEntity(p);
+    p.anim += 1.2;
+    camX = Math.min(Math.max(camX, p.x - W * 0.42), LW * T - W);
+    if (p.x >= (flagX + 6) * T + 4) { p.hidden = true; state = "tally"; }
+  } else if (state === "tally") {
+    if (time > 0) { const d = Math.min(time, 2); time -= d; score += 50 * d; hud(); if (frame % 4 === 0) tone(1200, 0.03, "square", 0.03); }
+    else if (++timer > 60) {
+      if (lvl < LEVELS.length - 1) { state = "clear"; showOverlay("clear"); }
+      else { state = "win"; saveBest(); showOverlay("win"); }
+    }
+  }
+}
+
+function saveBest() {
+  if (score > best) { best = score; try { localStorage.setItem("donat-run-best", best); } catch (e) {} }
+  bestEl.textContent = fmt(best);
+}
+
+// ---------- рисование ----------
+const fmt = n => n.toLocaleString("ru-RU");
+function r(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }
+
+function drawBackground() {
+  const kind = LEVELS[lvl].theme.kind;
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  if (kind === "day") { g.addColorStop(0, "#6fb8ff"); g.addColorStop(1, "#c9ecff"); }
+  else if (kind === "night") { g.addColorStop(0, "#0b1030"); g.addColorStop(1, "#2b2350"); }
+  else { g.addColorStop(0, "#22081f"); g.addColorStop(1, "#4a1238"); }
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  if (kind === "day") {
+    const co = (camX * 0.15 + frame * 0.05) % 360;
+    for (let i = -1; i < 3; i++) {
+      const x = i * 180 - co + 60, y = 30 + (i & 1) * 22;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(x, y, 10, 0, 7); ctx.arc(x + 14, y - 6, 13, 0, 7); ctx.arc(x + 30, y, 10, 0, 7); ctx.fill();
+      ctx.fillRect(x, y, 30, 10);
+    }
+  } else if (kind === "night") {
+    for (let i = 0; i < 40; i++) {
+      const sx = ((i * 97 + 13) % 330) - (camX * 0.05) % 330, sy = (i * 53) % 110 + 6;
+      const tw = (Math.floor(frame / 20) + i) % 5 === 0;
+      r((sx + 330) % 330, sy, 1, 1, tw ? "#6a6f9a" : "#e8ecff");
+    }
+    ctx.fillStyle = "#fff3c4"; ctx.beginPath(); ctx.arc(262, 40, 14, 0, 7); ctx.fill();
+    ctx.fillStyle = "#0b1030"; ctx.beginPath(); ctx.arc(268, 36, 12, 0, 7); ctx.fill();
+  } else {
+    // гирлянда лампочек под потолком
+    for (let x = -((camX * 0.5) % 12); x < W; x += 12) {
+      const on = (Math.floor(frame / 10) + Math.floor((x + camX * 0.5) / 12)) % 2 === 0;
+      r(x, 8, 4, 4, on ? "#ffd24a" : "#6a4a1a");
+    }
+    r(0, 13, W, 1, "#8a6a2a");
+  }
+
+  // дальние здания / неоновые вывески
+  const fo = (camX * 0.3) % 240;
+  for (let i = -1; i < 3; i++) {
+    const x = i * 240 - fo;
+    if (kind === "casino") {
+      r(x + 20, 70, 60, 34, "#2a0a2a"); r(x + 22, 72, 56, 30, "#3a0f36");
+      ctx.font = "16px " + PIX; ctx.textBaseline = "top";
+      ctx.fillStyle = Math.floor(frame / 30) % 2 ? "#ff3b4e" : "#ff7a88"; ctx.fillText("777", x + 26, 80);
+      for (const [mx, mh] of [[110, 80], [150, 80], [190, 80]]) {
+        r(x + mx, 192 - mh, 28, mh, "#5a1a4a"); r(x + mx + 4, 192 - mh + 8, 20, 16, "#111018");
+        r(x + mx + 6, 192 - mh + 11, 4, 10, "#ffd24a"); r(x + mx + 12, 192 - mh + 11, 4, 10, "#ff3b4e"); r(x + mx + 18, 192 - mh + 11, 4, 10, "#ffd24a");
+        r(x + mx + 24, 192 - mh + 4, 2, 14, "#c9c4d8"); r(x + mx + 23, 192 - mh + 2, 4, 3, "#ff3b4e");
+      }
+      continue;
+    }
+    const c1 = kind === "night" ? "#1d1b3a" : "#9bb7da", c2 = kind === "night" ? "#252248" : "#8aa8cf";
+    r(x + 10, 120, 34, 72, c1); r(x + 50, 96, 26, 96, c2); r(x + 84, 132, 40, 60, c1);
+    r(x + 140, 110, 22, 82, c2); r(x + 170, 140, 50, 52, c1);
+    for (let wy = 104; wy < 186; wy += 10) {
+      const lit = (k) => kind !== "night" || ((wy * 7 + k * 13 + i * 5) % 3 !== 0);
+      const wc = kind === "night" ? "#ffd24a" : "#c9dcf2";
+      if (lit(1)) r(x + 56, wy, 3, 4, wc);
+      if (lit(2)) r(x + 66, wy, 3, 4, wc);
+      if (kind === "night" && wy > 124) { if (lit(3)) r(x + 18, wy, 3, 4, wc); if (lit(4)) r(x + 30, wy, 3, 4, wc); if (wy > 140 && lit(5)) r(x + 96, wy, 3, 4, wc); }
+    }
+  }
+  if (kind === "casino") return;
+  const no = (camX * 0.6) % 200;
+  ctx.fillStyle = kind === "night" ? "#17301f" : "#5cbf45";
+  for (let i = -1; i < 3; i++) {
+    const x = i * 200 - no;
+    ctx.beginPath(); ctx.arc(x + 40, 196, 26, Math.PI, 0); ctx.arc(x + 130, 196, 18, Math.PI, 0); ctx.fill();
+  }
+}
+
+function drawGlyph(x, y, rows, c, s = 1) {
+  rows.forEach((line, j) => [...line].forEach((ch, i) => { if (ch === "#") r(x + i * s, y + j * s, s, s, c); }));
+}
+const DOLLAR = ["  #  ", " ### ", "# #  ", " ### ", "  # #", " ### ", "  #  "];
+
+function drawTile(c, x, y, tx, ty) {
+  switch (c) {
+    case "G": {
+      const th = LEVELS[lvl].theme;
+      r(x, y, T, T, th.gBody); r(x, y, T, 4, th.gTop); r(x, y + 4, T, 1, th.gTopDk);
+      r(x + 3, y + 8, 2, 2, th.gSpeck); r(x + 11, y + 11, 2, 2, th.gSpeck); break;
+    }
+    case "D": {
+      const th = LEVELS[lvl].theme;
+      r(x, y, T, T, th.gBody); r(x + 6, y + 4, 2, 2, th.gSpeck); r(x + 12, y + 10, 2, 2, th.gSpeck); r(x + 2, y + 12, 2, 2, th.gSpeck); break;
+    }
+    case "B":
+      r(x, y, T, T, "#c4532f"); r(x, y, T, 1, "#e4865e");
+      r(x, y + 7, T, 1, "#7a2a14"); r(x, y + 15, T, 1, "#7a2a14");
+      r(x + 7, y, 1, 7, "#7a2a14"); r(x + 3, y + 8, 1, 7, "#7a2a14"); r(x + 11, y + 8, 1, 7, "#7a2a14"); break;
+    case "?": case "P": {
+      const flash = Math.floor(frame / 12) % 4 === 0;
+      r(x, y, T, T, "#b5741b"); r(x + 1, y + 1, 14, 14, flash ? "#ffe07a" : "#ffc83d");
+      r(x + 2, y + 2, 1, 1, "#b5741b"); r(x + 13, y + 2, 1, 1, "#b5741b"); r(x + 2, y + 13, 1, 1, "#b5741b"); r(x + 13, y + 13, 1, 1, "#b5741b");
+      drawGlyph(x + 5, y + 4, DOLLAR, "#7a4410"); break;
+    }
+    case "U":
+      r(x, y, T, T, "#5e3a1e"); r(x + 1, y + 1, 14, 14, "#9c6a3c");
+      r(x + 2, y + 2, 1, 1, "#5e3a1e"); r(x + 13, y + 2, 1, 1, "#5e3a1e"); r(x + 2, y + 13, 1, 1, "#5e3a1e"); r(x + 13, y + 13, 1, 1, "#5e3a1e"); break;
+    case "X":
+      r(x, y, T, T, "#6f6a5f"); r(x, y, 15, 15, "#e5e0d2"); r(x + 1, y + 1, 14, 14, "#b9b3a6"); break;
+    case "[": r(x - 1, y, 17, T, "#16652a"); r(x, y + 1, 16, 14, "#2fae4a"); r(x + 3, y + 1, 3, 14, "#7fe08f"); break;
+    case "]": r(x, y, 17, T, "#16652a"); r(x, y + 1, 16, 14, "#2fae4a"); r(x + 10, y + 1, 2, 14, "#1e8a37"); break;
+    case "{": r(x + 1, y, 15, T, "#16652a"); r(x + 2, y, 14, T, "#2fae4a"); r(x + 5, y, 3, T, "#7fe08f"); break;
+    case "}": r(x, y, 15, T, "#16652a"); r(x, y, 14, T, "#2fae4a"); r(x + 8, y, 2, T, "#1e8a37"); break;
+    case "o": drawBills(x + 2, y + 4 + Math.sin((frame + tx * 7) / 10) * 1.5); break;
+  }
+}
+
+function drawBills(x, y) {
+  r(x, y + 2, 12, 7, "#1f7a3a"); r(x + 1, y + 1, 12, 7, "#2f9e4f"); r(x + 1, y + 1, 12, 1, "#7fdc95");
+  r(x + 2, y + 2, 10, 5, "#3fbf5f"); r(x + 6, y + 3, 2, 3, "#1f7a3a"); r(x + 5, y + 1, 1, 7, "#d9d26a");
+}
+
+function drawTiles() {
+  const tx0 = Math.floor(camX / T), tx1 = Math.min(LW - 1, tx0 + Math.ceil(W / T) + 1);
+  for (let ty = 0; ty < ROWS; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    const c = map[ty][tx];
+    if (c === ".") continue;
+    let off = 0;
+    const b = bumps.get(tx + "," + ty);
+    if (b !== undefined) off = -Math.sin((b / 10) * Math.PI) * 5;
+    drawTile(c, tx * T - Math.round(camX), ty * T + off, tx, ty);
+  }
+}
+
+function drawStudio() {
+  const x = (flagX + 4) * T - Math.round(camX), y = 6 * T;
+  r(x, y, 5 * T, 6 * T, "#2a2738"); r(x + 2, y + 2, 5 * T - 4, 6 * T - 2, "#3a3550");
+  for (let i = 0; i < 5; i++) r(x + i * T + 2, y - 6, 10, 6, "#2a2738");
+  // вывеска LIVE
+  const on = Math.floor(frame / 20) % 2 === 0;
+  r(x + 18, y + 8, 44, 14, "#111018"); r(x + 19, y + 9, 42, 12, on ? "#ff3b4e" : "#b3202f");
+  ctx.fillStyle = "#ffffff"; ctx.font = "8px " + PIX; ctx.textBaseline = "top"; ctx.fillText("LIVE", x + 24, y + 11);
+  r(x + 8, y + 30, 14, 10, "#7fd6ff"); r(x + 58, y + 30, 14, 10, "#7fd6ff");
+  r(x + 30, y + 4 * T, 20, 2 * T, "#111018");
+}
+
+function drawFlag() {
+  const x = flagX * T + 7 - Math.round(camX);
+  r(x, 2 * T, 2, 9 * T, "#e8e8e8");
+  r(x - 2, 2 * T - 5, 6, 6, "#ffd24a");
+  r(x - 20, flagY, 20, 13, "#ff3b4e");
+  ctx.fillStyle = "#ffffff"; ctx.font = "5px " + PIX; ctx.textBaseline = "top"; ctx.fillText("LIVE", x - 19, flagY + 4);
+}
+
+const HERO_TOP = [
+"..........M..M........",
+".........nM.nMn.......",
+".........MMnMMM.......",
+"........nMmMMmMn......",
+"........MMmMMmMM......",
+"......KKMmMMmMMMKK....",
+".....KhhMMMMMMMMSSK...",
+"....KhhSnMMMMMMnSSSK..",
+"....KhSSSnnnnnnSSSSK..",
+"...KhSSSSSSSSSSSSSSSK.",
+"...KhSSSSSSSSSSSSSSSK.",
+"...KhhSSSSSSSSSSSSSSK.",
+"...KhSSSSSSSSSEEESSEK.",
+"...KsSSSSSSSSSSSSSSSK.",
+"..KssSSSSSSSSWWBSSWBK.",
+"..KsseeSSSSSSWBPSSBPSS",
+"..KsseeSSSSSSCCSSSSSSs",
+"..KssseSSSSSSSSSSSSSK.",
+"...KssSSSSSSSSSRRRSSK.",
+"...KsssSSSSSSSSrrRSK..",
+"....KssSSSSSSSSSSSK...",
+".....KKssSSSSSSSKK....",
+".......KsssSSssKK.....",
+".....LLwwLssLwwLL.....",
+"....LLlwwwTATwwwLL....",
+"...LLlLLwTTATTwLLLL...",
+"..LLlLLLwTTTATTwLLL&$.",
+"..LwlLLLwTTTTTTwLLL$$%",
+"..LwlLLLwTTTTTTwLLS$&%",
+".SSGLLLLwTTTTTTwLSS$%.",
+".SSSlLLLwTTTTTTwLL%%..",
+"....wwwwwLLLLLwwww...."
+];
+const HERO_LEGS = {
+"stand": [
+".....JJJjJ..JjJJJ.....",
+".....JJJjJ..JjJJJ.....",
+".....JJJJ....JJJJ.....",
+"....OOOOO....OOOOO...."
+],
+"walk": [
+".....JJJjJ..JjJJJ.....",
+"....JJJj.....JjJJ.....",
+"...JJJJ.......JJJJ....",
+"..OOOOO.......OOOOO..."
+],
+"jump": [
+".....JJJjJ..JjJJJ.....",
+".....JJJj...JjJJJJ....",
+"....OOOOO.....JJJJ....",
+"..............OOOOO..."
+]
+};
+const HERO_PAL = {
+  K: "#2b1d1f", S: "#f2d6c9", s: "#d9ae9e", h: "#fff3ec", e: "#c48f7f", C: "#eab2a4",
+  M: "#5b3524", m: "#8a5638", n: "#3a2016", E: "#9a7058", W: "#ffffff", B: "#6fb3e0", P: "#1b2a3a",
+  R: "#c45a5a", r: "#5a1f24", L: "#1c1818", l: "#4a4240", w: "#5a3e30", T: "#0b0a0d", A: "#d4d6e2",
+  G: "#ffcf3f", J: "#262b3d", j: "#3a4160", O: "#121116", "$": "#3fbf5f", "%": "#1f7a3a", "&": "#9be8ae",
+};
+function makeSprite(rows, tint) {
+  const c = document.createElement("canvas");
+  c.width = 22; c.height = 36;
+  const g = c.getContext("2d");
+  rows.forEach((line, y) => [...line].forEach((ch, x) => {
+    const col = HERO_PAL[ch];
+    if (col) { g.fillStyle = tint || col; g.fillRect(x, y, 1, 1); }
+  }));
+  return c;
+}
+const HERO = {}, HERO_GLOW = {};
+for (const k in HERO_LEGS) { HERO[k] = makeSprite(HERO_TOP.concat(HERO_LEGS[k])); HERO_GLOW[k] = makeSprite(HERO_TOP.concat(HERO_LEGS[k]), "#ffd24a"); }
+
+function drawHero(p) {
+  if (p.hidden) return;
+  if (p.inv > 0 && Math.floor(p.inv / 4) % 2 === 0) return;
+  const air = !p.onGround && state !== "dying" && state !== "flag";
+  const k = air ? "jump" : (Math.abs(p.vx) > 0.2 && Math.floor(p.anim / 8) % 2) ? "walk" : "stand";
+  ctx.save();
+  ctx.translate(Math.round(p.x + p.w / 2 - camX), Math.round(p.y + p.h - 36));
+  ctx.scale(p.face, 1);
+  // после энергетика — золотое свечение вокруг
+  if (p.big && Math.floor(frame / 6) % 2) {
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(HERO_GLOW[k], -11 + dx, dy);
+  }
+  ctx.drawImage(HERO[k], -11, 0);
+  ctx.restore();
+}
+
+const COP_BODY = ["....KKKKKKKKK.....", "...KCCCCCCCCCK....", "..KCCCCCCYYCCCK...", "..KCCCCCCYYCCCK...", "..KRRRRRRRRRRRK...", ".KKKKKKKKKKKKKKKKK", "....KSSSSSSSSK....", "....KSSSSSPSSSK...", "....KsSSSSSSSSSK..", "....KsSSSMMMMMK...", "....KssSSSSSSK....", ".....KKssssKK.....", "...KVVVUUUUVVVK...", "..KVVVVUUYUVVVVK..", "..KXXXXXXXXXXXXK..", ".KUVVVVVVVVVVVVUK.", ".KUVVVVVVVVVVVVUZK", ".KUXXXXXXXXXXXXUBK", ".KSVVVVVVVVVVVVSZK", "..KVVVVVVVVVVVVKBK", "..KuuuuuYuuuuuuKZK", "...KJJJJJJJJJJK.K."];
+const COP_LEGS = {"a": ["...KJJJJK.KJJJJK..", "...KJJJJK.KJJJJK..", "...KJJJJK.KJJJJK..", "..KbbbbbK.KbbbbbK.", "..KKKKKKK.KKKKKKK."], "b": ["...KJJJJK.KJJJJK..", "..KJJJJK...KJJJJK.", "..KJJJJK...KJJJJK.", ".KbbbbbK...KbbbbbK", ".KKKKKKK...KKKKKKK"]};
+const COP_PAL = { K: "#141220", C: "#26365e", U: "#26365e", u: "#1a2544", J: "#1d2a4a", R: "#c8323c", Y: "#ffcf3f", S: "#e8b48c", s: "#c48f6f", P: "#141218", M: "#3a2a20", V: "#c6f03a", X: "#eef2f6", Z: "#ffffff", B: "#141218", b: "#0d0c10" };
+function makePix(rows, pal) {
+  const c = document.createElement("canvas");
+  c.width = rows[0].length; c.height = rows.length;
+  const g = c.getContext("2d");
+  rows.forEach((line, y) => [...line].forEach((ch, x) => { if (pal[ch]) { g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); } }));
+  return c;
+}
+const COP = { a: makePix(COP_BODY.concat(COP_LEGS.a), COP_PAL), b: makePix(COP_BODY.concat(COP_LEGS.b), COP_PAL) };
+// сплющенный: фуражка сверху, тело в лепёшку
+const COP_FLAT = makePix(["...KKKKKKKKK......", "..KRRRRRRRRRK.....", ".KKKKKKKKKKKKKK...", "..KSSPSSMMMSK.....", ".KVVVVVVYVVVVVVK..", "KXXXXXXXXXXXXXXXK.", "KVVVVVVVVVVVVVVVK.", "KbbbbbK...KbbbbbK."], COP_PAL);
+
+function drawHater(e) {
+  const x = Math.round(e.x - camX), y = Math.round(e.y);
+  if (e.dead === "flat") { ctx.drawImage(COP_FLAT, x - 2, y + e.h - 8); return; }
+  ctx.save();
+  ctx.translate(x + 7, y + e.h / 2);
+  if (e.dead === "flip") ctx.scale(1, -1);
+  if (e.dir < 0) ctx.scale(-1, 1);
+  ctx.drawImage(COP[Math.floor(frame / 10) % 2 ? "a" : "b"], -9, e.h / 2 - 27);
+  ctx.restore();
+}
+
+function drawDislike(e) {
+  const x = Math.round(e.x - camX), y = Math.round(e.y);
+  ctx.save();
+  if (e.dead === "flip") { ctx.translate(x + 7, y + 6); ctx.scale(1, -1); ctx.translate(-x - 7, -y - 6); }
+  const spin = Math.floor(frame / 3) % 2;
+  // винты
+  r(x - 3, y, spin ? 8 : 4, 1, "#c9c4d8"); r(x + (spin ? 9 : 13), y, spin ? 8 : 4, 1, "#c9c4d8");
+  r(x + 1, y + 1, 1, 2, "#4a4466"); r(x + 12, y + 1, 1, 2, "#4a4466");
+  // корпус дрона
+  r(x, y + 3, 14, 7, "#141220"); r(x + 1, y + 4, 12, 5, "#2c3e6b"); r(x + 1, y + 4, 12, 1, "#4b62a0");
+  r(x + 4, y + 6, 6, 2, "#ffffff"); r(x + 5, y + 6, 4, 1, "#141220");   // надпись-полоса
+  // мигалка
+  const blink = Math.floor(frame / 8) % 2;
+  r(x + 3, y + 1, 3, 2, blink ? "#ff3b4e" : "#6a1a22"); r(x + 8, y + 1, 3, 2, blink ? "#2a4a8a" : "#4aa8ff");
+  // камера
+  r(x + 6, y + 10, 2, 2, "#141220"); r(x + 6, y + 10, 1, 1, "#ff3b4e");
+  ctx.restore();
+}
+
+function drawPlatforms() {
+  for (const pl of platforms) {
+    const x = Math.round(pl.x - camX), y = Math.round(pl.y);
+    if (x > W || x + pl.w < 0) continue;
+    r(x, y, pl.w, pl.h, "#2a2738"); r(x, y, pl.w, 2, "#9a8ac4"); r(x + 1, y + 2, pl.w - 2, 3, "#4a4466");
+    for (let i = 6; i < pl.w - 4; i += 10) r(x + i, y + 3, 2, 2, "#ff3b4e");
+  }
+}
+
+function drawCan(it) {
+  const x = Math.round(it.x - camX), y = Math.round(it.y);
+  r(x + 1, y, 8, 2, "#c9c9d6"); r(x, y + 2, 10, 12, "#2f6fe0"); r(x, y + 6, 10, 3, "#7cff6b"); r(x + 2, y + 3, 1, 9, "#9cc3ff");
+  r(x + 3, y + 10, 4, 2, "#ffd24a");
+}
+
+function draw() {
+  drawBackground();
+  drawStudio();
+  drawFlag();
+  drawTiles();
+  drawPlatforms();
+  for (const p of pops) drawBills(Math.round(p.x - camX), Math.round(p.y));
+  for (const it of items) drawCan(it);
+  for (const e of enemies) if (e.active || e.x < camX + W) (e.fly ? drawDislike : drawHater)(e);
+  drawHero(player);
+  for (const p of parts) {
+    if (p.bill) { const fl = Math.floor(p.t / 5) % 2; r(p.x - camX, p.y, fl ? 6 : 4, fl ? 3 : 4, "#2f9e4f"); r(p.x - camX + 1, p.y + 1, fl ? 4 : 2, 1, "#7fdc95"); }
+    else { r(p.x - camX, p.y, 5, 5, "#c4532f"); r(p.x - camX, p.y, 5, 1, "#e4865e"); }
+  }
+  ctx.font = "6px " + PIX; ctx.textBaseline = "top";
+  for (const t of texts) { ctx.fillStyle = "#1d1c26"; ctx.fillText(t.s, Math.round(t.x - camX) + 1, Math.round(t.y) + 1); ctx.fillStyle = "#ffffff"; ctx.fillText(t.s, Math.round(t.x - camX), Math.round(t.y)); }
+  if (banner > 0 && state === "play") {
+    banner--;
+    const L = LEVELS[lvl], t1 = "УРОВЕНЬ " + L.id, t2 = L.name.toUpperCase();
+    ctx.fillStyle = "rgba(17,16,24,.75)"; ctx.fillRect(0, 84, W, 44);
+    ctx.textBaseline = "top"; ctx.textAlign = "center";
+    ctx.font = "8px " + PIX; ctx.fillStyle = "#ffd24a"; ctx.fillText(t1, W / 2, 94);
+    ctx.font = "10px " + PIX; ctx.fillStyle = "#ffffff"; ctx.fillText(t2, W / 2, 110);
+    ctx.textAlign = "left";
+  }
+  if (state === "pause") { ctx.fillStyle = "rgba(17,16,24,.5)"; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- интерфейс ----------
+const $ = id => document.getElementById(id);
+const ov = $("ov"), ovTitle = $("ovTitle"), ovText = $("ovText"), ovBig = $("ovBig"), ovBtn = $("ovBtn"), bestEl = $("best");
+bestEl.textContent = fmt(best);
+let last = {};
+function hud() {
+  const v = { s: fmt(score) + " ₽", c: "×" + coins, t: String(Math.max(0, time)), l: "♥×" + lives, v: LEVELS[lvl].id };
+  if (v.v !== last.v) $("hLvl").textContent = v.v;
+  if (v.s !== last.s) $("hScore").textContent = v.s;
+  if (v.c !== last.c) $("hCoins").textContent = v.c;
+  if (v.t !== last.t) $("hTime").textContent = v.t;
+  if (v.l !== last.l) $("hLives").textContent = v.l;
+  last = v;
+}
+function showOverlay(kind) {
+  ov.hidden = false; ovBig.hidden = true;
+  if (kind === "over") {
+    ovTitle.textContent = "Стрим упал";
+    ovText.textContent = "Мусора повязали. Жизни кончились.";
+    ovBig.hidden = false; ovBig.textContent = "Задонатили: " + fmt(score) + " ₽";
+    ovBtn.textContent = "Новый стрим";
+  } else if (kind === "clear") {
+    ovTitle.textContent = "Уровень " + LEVELS[lvl].id + " пройден!";
+    ovText.textContent = "Дальше: " + LEVELS[lvl + 1].id + " «" + LEVELS[lvl + 1].name + "». Донаты, пачки и жизни сохраняются.";
+    ovBig.hidden = false; ovBig.textContent = "Пока: " + fmt(score) + " ₽";
+    ovBtn.textContent = "Следующий уровень";
+  } else if (kind === "win") {
+    ovTitle.textContent = "Все уровни пройдены!";
+    ovText.textContent = "Город, ночь и казино позади. Остаток эфира ушёл в донаты.";
+    ovBig.hidden = false; ovBig.textContent = "Итого: " + fmt(score) + " ₽";
+    ovBtn.textContent = "Ещё раз";
+  } else if (kind === "pause") {
+    ovTitle.textContent = "Пауза";
+    ovText.textContent = "Стрим на паузе. Чат ждёт.";
+    ovBtn.textContent = "Продолжить";
+  }
+  ovBtn.focus({ preventScroll: true });
+}
+function togglePause() {
+  if (state === "play") { state = "pause"; showOverlay("pause"); }
+  else if (state === "pause") { state = "play"; ov.hidden = true; cv.focus?.(); }
+}
+ovBtn.addEventListener("click", () => {
+  ensureAudio();
+  if (actx && actx.state === "suspended") actx.resume();
+  if (state === "pause") { togglePause(); return; }
+  if (state === "clear") { lvl++; checkpoint = false; halfwayAlert = false; resetRun(false); }
+  else { lvl = 0; resetRun(true); }
+  ov.hidden = true;
+  ovBtn.blur();
+});
+
+// ---------- цикл ----------
+buildLevel();
+player = makePlayer(3 * T);
+camX = 0;
+hud();
+let acc = 0, prev = performance.now();
+function loop(now) {
+  acc += Math.min(0.1, (now - prev) / 1000);
+  prev = now;
+  while (acc >= 1 / 60) { if (state !== "pause" && state !== "title" && state !== "over" && state !== "win" && state !== "clear") step(); else frame++; acc -= 1 / 60; }
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
